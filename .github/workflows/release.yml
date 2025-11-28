@@ -19,6 +19,9 @@ jobs:
     - name: Set up Python
       run: uv python install 3.12
 
+    - name: Create virtual environment
+      run: uv venv
+
     - name: Install build dependencies
       run: |
         uv pip install build twine
@@ -29,7 +32,7 @@ jobs:
 
     - name: Check package
       run: |
-        twine check dist/*
+        uv run twine check dist/*
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
