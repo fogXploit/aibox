@@ -1,0 +1,15 @@
+# Git Profile
+# Installs git for repository access inside the container
+
+name: git
+description: Git client for repository access
+versions:
+  - "latest"
+default_version: "latest"
+
+system_dependencies:
+  - git
+
+docker_layers: []
+
+post_install: []

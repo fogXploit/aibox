@@ -1,0 +1,30 @@
+# Python Development Profile
+# Provides Python with uv package manager for fast dependency management
+
+name: python
+description: Python development with uv package manager
+versions:
+  - "3.11"
+  - "3.12"
+  - "3.13"
+default_version: "3.12"
+package_manager: uv
+
+system_dependencies: []
+
+env_vars:
+  PYTHON_VERSION: "${VERSION}"
+  VIRTUAL_ENV: "/home/aibox/.venv"
+  PATH: "/home/aibox/.local/bin:/home/aibox/.venv/bin:$PATH"
+
+docker_layers:
+  # Install uv as aibox user using standalone installer (no system Python required)
+  # Use UV_INSTALL_DIR to control installation location
+  - "USER aibox"
+  - "RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=\"/home/aibox/.local/bin/\" sh"
+  - "USER root"
+
+post_install:
+  # uv installs the specified Python version and creates venv
+  - "uv python install ${PYTHON_VERSION}"
+  - "uv venv ${VIRTUAL_ENV}"

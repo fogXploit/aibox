@@ -1,0 +1,16 @@
+# Sudo Profile
+# Grants passwordless sudo access for the aibox user inside the container
+
+name: sudo
+description: Passwordless sudo access for the aibox user
+versions:
+  - "1"
+default_version: "1"
+
+system_dependencies:
+  - sudo
+
+docker_layers:
+  - "RUN echo 'aibox ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/aibox && chmod 440 /etc/sudoers.d/aibox"
+
+post_install: []

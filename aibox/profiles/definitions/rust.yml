@@ -1,0 +1,36 @@
+# Rust Development Profile
+# Provides Rust with rustup, cargo, and common tools
+
+name: rust
+description: Rust development with rustup and cargo
+versions:
+  - "stable"
+  - "beta"
+  - "nightly"
+  - "1.75"
+  - "1.76"
+  - "1.77"
+default_version: "stable"
+package_manager: cargo
+
+system_dependencies:
+  - curl
+  - build-essential
+  - ca-certificates
+
+install_commands: []
+
+env_vars:
+  RUST_VERSION: "${VERSION}"
+  RUSTUP_HOME: "/home/aibox/.rustup"
+  CARGO_HOME: "/home/aibox/.cargo"
+  PATH: "/home/aibox/.cargo/bin:$PATH"
+
+docker_layers:
+  - "RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${RUST_VERSION}"
+  - "RUN . /home/aibox/.cargo/env && rustup component add rustfmt clippy"
+
+post_install:
+  - ". /home/aibox/.cargo/env"
+  - "rustc --version"
+  - "cargo --version"

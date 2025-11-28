@@ -1,0 +1,32 @@
+# Go Development Profile
+# Provides Go compiler and toolchain
+
+name: go
+description: Go development with official toolchain
+versions:
+  - "1.21.13"
+  - "1.22.12"
+  - "1.23.6"
+default_version: "1.22.12"
+package_manager: go
+
+system_dependencies:
+  - wget
+  - ca-certificates
+
+install_commands: []
+
+env_vars:
+  GO_VERSION: "${VERSION}"
+  GOPATH: "/home/aibox/go"
+  GOROOT: "/usr/local/go"
+  PATH: "/usr/local/go/bin:/home/aibox/go/bin:$PATH"
+
+docker_layers:
+  - "RUN wget -q https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+  - "RUN tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz"
+  - "RUN rm go${GO_VERSION}.linux-amd64.tar.gz"
+
+post_install:
+  - "go version"
+  - "mkdir -p /home/aibox/go/bin"

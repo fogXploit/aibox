@@ -1,0 +1,28 @@
+# Node.js Development Profile
+# Note: Node.js is pre-installed in the base image for AI CLI support
+# This profile provides additional npm configuration and tools
+
+name: nodejs
+description: Node.js development with npm/yarn/pnpm support
+versions:
+  - "20"
+default_version: "20"
+package_manager: npm
+
+system_dependencies: []
+
+install_commands: []
+
+env_vars:
+  NODE_VERSION: "${VERSION}"
+  NPM_CONFIG_PREFIX: "/home/aibox/npm-global"
+  PATH: "/home/aibox/npm-global/bin:$PATH"
+
+docker_layers:
+  # Node.js is already installed in base image
+  # Upgrade npm to latest version
+  - "RUN npm install -g npm@latest"
+
+post_install:
+  - "npm --version"
+  - "node --version"
