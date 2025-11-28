@@ -1,7 +1,7 @@
 [project]
 name = "aibox-cli"
 # SINGLE SOURCE OF TRUTH: Version is read dynamically via importlib.metadata
-version = "0.3.0"
+version = "0.3.2"
 description = "Container-Based Multi-AI Development Environment"
 authors = [
     {name = "fogXploit"}
