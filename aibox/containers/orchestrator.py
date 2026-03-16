@@ -274,6 +274,10 @@ class ContainerOrchestrator:
 
         # Step 7: Get environment variables and ports from provider
         env_vars = provider.get_docker_env_vars()
+        # Merge with user-defined environment variables from config
+        if config.project.environment:
+            env_vars.update(config.project.environment)
+
         ports = provider.get_required_ports(
             force_auth_port=force_openai_auth_port,
             project_storage_dir=storage_dir,
