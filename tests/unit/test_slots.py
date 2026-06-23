@@ -336,9 +336,7 @@ class TestSlotManager:
         manager.cleanup_slot(1)
 
         # Verify container was removed first
-        mock_mgr_instance.remove_container.assert_called_once_with(
-            "aibox-myproject-1", force=False
-        )
+        mock_mgr_instance.remove_container.assert_called_once_with("aibox-myproject-1", force=False)
         # Verify image was removed
         removed_images = {call.args[0] for call in mock_mgr_instance.remove_image.call_args_list}
         assert removed_images == {
@@ -370,9 +368,7 @@ class TestSlotManager:
         manager = SlotManager("test-project")
         manager.cleanup_slot(1)
 
-        mock_mgr_instance.remove_container.assert_called_once_with(
-            "aibox-myproject-1", force=False
-        )
+        mock_mgr_instance.remove_container.assert_called_once_with("aibox-myproject-1", force=False)
         mock_mgr_instance.remove_image.assert_called_once_with(
             "aibox-myproject-claude:latest", force=False
         )
@@ -440,7 +436,10 @@ class TestSlotManager:
         mock_mgr_instance.is_container_running.return_value = False
         mock_mgr_instance.is_image_in_use.return_value = False
         image_map = {
-            "aibox-myproject-claude:*": ["aibox-myproject-claude:latest", "aibox-myproject-claude:abc"],
+            "aibox-myproject-claude:*": [
+                "aibox-myproject-claude:latest",
+                "aibox-myproject-claude:abc",
+            ],
             "aibox-myproject-gemini:*": ["aibox-myproject-gemini:latest"],
             "aibox-myproject-openai:*": ["aibox-myproject-openai:latest"],
         }
@@ -458,7 +457,9 @@ class TestSlotManager:
 
         # Verify containers were removed
         assert mock_mgr_instance.remove_container.call_count == 3
-        removed_containers = {call[0][0] for call in mock_mgr_instance.remove_container.call_args_list}
+        removed_containers = {
+            call[0][0] for call in mock_mgr_instance.remove_container.call_args_list
+        }
         assert removed_containers == {
             "aibox-myproject-1",
             "aibox-myproject-2",
@@ -515,9 +516,7 @@ class TestSlotManager:
         # Verify NO images were removed (at least one container running)
         mock_mgr_instance.remove_image.assert_not_called()
         # Only stopped slot should have its container removed
-        mock_mgr_instance.remove_container.assert_called_once_with(
-            "aibox-myproject-2", force=False
-        )
+        mock_mgr_instance.remove_container.assert_called_once_with("aibox-myproject-2", force=False)
         mock_mgr_instance.list_images.assert_not_called()
 
         # Slot 1 should still exist (running), slot 2 should be cleaned up

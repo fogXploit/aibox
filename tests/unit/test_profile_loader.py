@@ -251,3 +251,18 @@ description: Missing required fields
 
         with pytest.raises(InvalidProfileError, match="Invalid profile definition"):
             loader.load_profile("incomplete")
+
+    def test_builtin_profiles_valid_docker_layers(self) -> None:
+        """Test that built-in profiles have valid docker layers (no quoted commands)."""
+        loader = ProfileLoader()
+        profiles = loader.list_profiles()
+        for name in profiles:
+            profile, _ = loader.load_profile(name)
+            for layer in profile.docker_layers:
+                # Quoted commands like RUN '...' or RUN "..." fail during docker build
+                assert not layer.startswith("RUN '"), (
+                    f"Profile '{name}' has a layer starting with RUN ': {layer}"
+                )
+                assert not layer.startswith('RUN "'), (
+                    f"Profile '{name}' has a layer starting with RUN \": {layer}"
+                )

@@ -1,0 +1,40 @@
+# Flutter Development Profile
+# This profile provides additional flutter and dart configuration and tools
+
+name: flutter
+description: Flutter development with Dart support
+versions:
+  - "3.44.3"
+default_version: "3.44.3"
+package_manager: pub
+
+system_dependencies: 
+  - wget
+  - clang
+  - cmake
+  - ninja-build
+  - pkg-config
+  - libgtk-3-dev
+  - libstdc++-12-dev
+  - curl
+  - git
+  - unzip
+  - xz-utils
+  - zip
+  - libglu1-mesa
+  - tar
+
+install_commands: []
+
+env_vars:
+  FLUTTER_VERSION: "${VERSION}"
+  PATH: "/home/aibox/flutter/bin:$PATH"
+
+docker_layers:
+  - "RUN wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+  - "RUN tar -xf flutter_linux_${FLUTTER_VERSION}-stable.tar.xz -C /home/aibox/"
+  - "RUN rm flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+
+post_install:
+  - "flutter --version"
+  - "dart --version"
