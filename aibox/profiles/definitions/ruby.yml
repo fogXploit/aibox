@@ -1,0 +1,40 @@
+# Ruby Development Profile
+# Compiles Ruby from source (apt ruby-full on bookworm is EOL Ruby 3.1;
+# building from source is what the official ruby image does)
+
+name: ruby
+description: Ruby development built from source
+versions:
+  - "3.3.11"
+  - "3.4.10"
+  - "4.0.5"
+default_version: "3.4.10"
+package_manager: gem
+
+# Build dependencies. libyaml-dev and libssl-dev are critical: their absence
+# only fails late in the build (psych/openssl extensions), not at configure time.
+system_dependencies:
+  - build-essential
+  - libssl-dev
+  - libyaml-dev
+  - zlib1g-dev
+  - libffi-dev
+  - libreadline-dev
+  - libgmp-dev
+  - curl
+  - ca-certificates
+
+install_commands: []
+
+env_vars:
+  RUBY_VERSION: "${VERSION}"
+
+docker_layers:
+  # Download, build, install, and clean up in ONE layer to keep the image slim.
+  # major.minor for the download path is derived with shell (plain str.replace
+  # only substitutes ${VERSION}; ${VERSION%.*} would NOT be substituted).
+  - "RUN cd /tmp && curl -fsSLO https://cache.ruby-lang.org/pub/ruby/$(echo '${VERSION}' | cut -d. -f1-2)/ruby-${VERSION}.tar.gz && tar -xzf ruby-${VERSION}.tar.gz && cd ruby-${VERSION} && ./configure --prefix=/usr/local --enable-shared --disable-install-doc && make -j\"$(nproc)\" && make install && cd /tmp && rm -rf ruby-${VERSION} ruby-${VERSION}.tar.gz"
+
+post_install:
+  - "ruby --version"
+  - "gem --version"

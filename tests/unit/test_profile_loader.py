@@ -67,6 +67,12 @@ class TestProfileLoader:
         assert "rust" in profiles
         assert "sudo" in profiles
         assert "git" in profiles
+        assert "flutter" in profiles
+        assert "java" in profiles
+        assert "dotnet" in profiles
+        assert "php" in profiles
+        assert "ruby" in profiles
+        assert "cpp" in profiles
 
     def test_list_profiles_empty_directory(self, tmp_path: Path) -> None:
         """Test listing profiles from empty directory."""
@@ -90,7 +96,14 @@ class TestProfileLoader:
             assert "name" in profile
             assert "description" in profile
             assert "versions" in profile
+            assert "versions_list" in profile
             assert "default_version" in profile
+
+            # versions is a display string, versions_list is the raw list
+            versions_list = profile["versions_list"]
+            assert isinstance(versions_list, list)
+            assert profile["versions"] == ", ".join(versions_list)
+            assert profile["default_version"] in versions_list
 
     def test_load_builtin_python_profile(self) -> None:
         """Test loading built-in Python profile."""
@@ -121,6 +134,144 @@ class TestProfileLoader:
         assert version == profile.default_version
         assert profile.versions == ["latest"]
         assert profile.system_dependencies == ["git"]
+
+    def test_load_builtin_nodejs_profile(self) -> None:
+        """Test that the nodejs profile offers current versions and has no npm upgrade layer."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("nodejs")
+
+        assert profile.name == "nodejs"
+        assert profile.versions == ["20", "22", "24"]
+        assert profile.default_version == "24"
+        assert version == "24"
+        # NodeSource packages bundle a current npm; upgrading breaks on older Node
+        assert not any("npm install -g npm@latest" in layer for layer in profile.docker_layers)
+
+    def test_load_builtin_go_profile(self) -> None:
+        """Test that the go profile offers current versions with the official tarball."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("go")
+
+        assert profile.name == "go"
+        assert profile.versions == ["1.24.13", "1.25.12", "1.26.5"]
+        assert profile.default_version == "1.25.12"
+        assert version == "1.25.12"
+        assert any("go.dev/dl/go" in layer for layer in profile.docker_layers)
+
+    def test_load_builtin_rust_profile(self) -> None:
+        """Test that the rust profile offers current pins alongside channels."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("rust")
+
+        assert profile.name == "rust"
+        assert profile.versions == ["stable", "beta", "nightly", "1.95.0", "1.96.1", "1.97.0"]
+        assert profile.default_version == "stable"
+        assert version == "stable"
+        assert any("rustup" in layer for layer in profile.docker_layers)
+
+    def test_load_builtin_flutter_profile(self) -> None:
+        """Test that the flutter profile offers current stable versions."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("flutter")
+
+        assert profile.name == "flutter"
+        assert profile.versions == ["3.44.3", "3.44.6"]
+        assert profile.default_version == "3.44.6"
+        assert version == "3.44.6"
+        assert any(
+            "storage.googleapis.com/flutter_infra_release" in layer
+            for layer in profile.docker_layers
+        )
+
+    def test_load_builtin_java_profile(self) -> None:
+        """Test that the java profile installs Eclipse Temurin LTS JDKs via Adoptium."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("java")
+
+        assert profile.name == "java"
+        assert profile.versions == ["17", "21", "25"]
+        assert profile.default_version == "21"
+        assert version == "21"
+        assert "wget" in profile.system_dependencies
+        assert "gpg" in profile.system_dependencies
+        assert "ca-certificates" in profile.system_dependencies
+        assert "apt-transport-https" in profile.system_dependencies
+        assert any("packages.adoptium.net" in layer for layer in profile.docker_layers)
+        assert any("temurin-${VERSION}-jdk" in layer for layer in profile.docker_layers)
+        assert "java -version" in profile.post_install
+        assert "javac -version" in profile.post_install
+
+    def test_load_builtin_dotnet_profile(self) -> None:
+        """Test that the dotnet profile installs the SDK from the Microsoft apt repo."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("dotnet")
+
+        assert profile.name == "dotnet"
+        assert profile.versions == ["8.0", "9.0", "10.0"]
+        assert profile.default_version == "10.0"
+        assert version == "10.0"
+        assert "wget" in profile.system_dependencies
+        assert "ca-certificates" in profile.system_dependencies
+        assert any("packages-microsoft-prod.deb" in layer for layer in profile.docker_layers)
+        assert any("dotnet-sdk-${VERSION}" in layer for layer in profile.docker_layers)
+        assert profile.env_vars.get("DOTNET_CLI_TELEMETRY_OPTOUT") == "1"
+        assert profile.env_vars.get("DOTNET_NOLOGO") == "1"
+        assert "dotnet --version" in profile.post_install
+
+    def test_load_builtin_php_profile(self) -> None:
+        """Test that the php profile installs PHP from the Sury repo plus Composer."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("php")
+
+        assert profile.name == "php"
+        assert profile.versions == ["8.2", "8.3", "8.4", "8.5"]
+        assert profile.default_version == "8.4"
+        assert version == "8.4"
+        assert "curl" in profile.system_dependencies
+        assert "ca-certificates" in profile.system_dependencies
+        assert "apt-transport-https" in profile.system_dependencies
+        assert any("packages.sury.org/php" in layer for layer in profile.docker_layers)
+        assert any("php${VERSION}-cli" in layer for layer in profile.docker_layers)
+        assert any("getcomposer.org" in layer for layer in profile.docker_layers)
+        assert "php --version" in profile.post_install
+        assert "composer --version" in profile.post_install
+
+    def test_load_builtin_ruby_profile(self) -> None:
+        """Test that the ruby profile compiles current Ruby releases from source."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("ruby")
+
+        assert profile.name == "ruby"
+        assert profile.versions == ["3.3.11", "3.4.10", "4.0.5"]
+        assert profile.default_version == "3.4.10"
+        assert version == "3.4.10"
+        # Build deps; libyaml-dev and libssl-dev failures only surface late in the build
+        assert "build-essential" in profile.system_dependencies
+        assert "libssl-dev" in profile.system_dependencies
+        assert "libyaml-dev" in profile.system_dependencies
+        assert any("cache.ruby-lang.org" in layer for layer in profile.docker_layers)
+        # major.minor is derived with shell (plain ${VERSION%.*} is not substituted)
+        assert any("cut -d. -f1-2" in layer for layer in profile.docker_layers)
+        assert "ruby --version" in profile.post_install
+        assert "gem --version" in profile.post_install
+
+    def test_load_builtin_cpp_profile(self) -> None:
+        """Test that the cpp profile uses only the Debian system toolchain."""
+        loader = ProfileLoader()
+        profile, version = loader.load_profile("cpp")
+
+        assert profile.name == "cpp"
+        assert profile.versions == ["system"]
+        assert profile.default_version == "system"
+        assert version == "system"
+        assert "build-essential" in profile.system_dependencies
+        assert "gdb" in profile.system_dependencies
+        assert "cmake" in profile.system_dependencies
+        assert "pkg-config" in profile.system_dependencies
+        assert "make" in profile.system_dependencies
+        assert profile.docker_layers == []
+        assert "gcc --version" in profile.post_install
+        assert "g++ --version" in profile.post_install
 
     def test_load_python_with_specific_version(self) -> None:
         """Test loading Python profile with specific version."""

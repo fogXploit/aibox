@@ -1,0 +1,34 @@
+# PHP Development Profile
+# Provides PHP from the Sury apt repository (bookworm) plus Composer
+# Extensions cover the minimum the Composer ecosystem expects
+# Note: PHP 8.2 security support ends 2026-12-31
+
+name: php
+description: PHP development with Composer
+versions:
+  - "8.2"
+  - "8.3"
+  - "8.4"
+  - "8.5"
+default_version: "8.4"
+package_manager: composer
+
+system_dependencies:
+  - curl
+  - ca-certificates
+  - apt-transport-https
+
+install_commands: []
+
+env_vars:
+  PHP_VERSION: "${VERSION}"
+
+docker_layers:
+  - "RUN curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg"
+  - "RUN echo 'deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ bookworm main' > /etc/apt/sources.list.d/php.list"
+  - "RUN apt-get update && apt-get install -y --no-install-recommends php${VERSION}-cli php${VERSION}-mbstring php${VERSION}-xml php${VERSION}-curl php${VERSION}-zip php${VERSION}-intl php${VERSION}-mysql php${VERSION}-sqlite3 && rm -rf /var/lib/apt/lists/*"
+  - "RUN curl -sSLo /usr/local/bin/composer https://getcomposer.org/download/latest-stable/composer.phar && chmod +x /usr/local/bin/composer"
+
+post_install:
+  - "php --version"
+  - "composer --version"

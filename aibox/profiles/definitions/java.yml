@@ -1,0 +1,32 @@
+# Java Development Profile
+# Provides Eclipse Temurin JDK from the Adoptium apt repository
+# No Maven/Gradle: projects are expected to use their ./mvnw / ./gradlew wrappers
+
+name: java
+description: Java development with Eclipse Temurin JDK
+versions:
+  - "17"
+  - "21"
+  - "25"
+default_version: "21"
+package_manager: maven
+
+system_dependencies:
+  - wget
+  - gpg
+  - ca-certificates
+  - apt-transport-https
+
+install_commands: []
+
+env_vars:
+  JAVA_VERSION: "${VERSION}"
+
+docker_layers:
+  - "RUN wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg"
+  - "RUN echo 'deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bookworm main' > /etc/apt/sources.list.d/adoptium.list"
+  - "RUN apt-get update && apt-get install -y --no-install-recommends temurin-${VERSION}-jdk && rm -rf /var/lib/apt/lists/*"
+
+post_install:
+  - "java -version"
+  - "javac -version"

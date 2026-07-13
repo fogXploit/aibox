@@ -1,0 +1,29 @@
+# C/C++ Development Profile
+# Uses the Debian bookworm system toolchain (GCC 12.2 via build-essential).
+# No gcc-13 exists in bookworm or bookworm-backports.
+# Newer clang is available via apt.llvm.org if needed later.
+
+name: cpp
+description: C/C++ development with GCC toolchain (Debian bookworm)
+versions:
+  - "system"
+default_version: "system"
+package_manager: apt
+
+system_dependencies:
+  - build-essential
+  - gdb
+  - cmake
+  - pkg-config
+  - make
+
+install_commands: []
+
+env_vars: {}
+
+# apt does everything via system_dependencies
+docker_layers: []
+
+post_install:
+  - "gcc --version"
+  - "g++ --version"

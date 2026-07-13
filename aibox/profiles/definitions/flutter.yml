@@ -3,9 +3,11 @@
 
 name: flutter
 description: Flutter development with Dart support
+# Note: Flutter Linux tarballs are x64-only (no arm64 builds are published)
 versions:
   - "3.44.3"
-default_version: "3.44.3"
+  - "3.44.6"
+default_version: "3.44.6"
 package_manager: pub
 
 system_dependencies: 

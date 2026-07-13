@@ -4,10 +4,11 @@
 name: go
 description: Go development with official toolchain
 versions:
-  - "1.21.13"
-  - "1.22.12"
-  - "1.23.6"
-default_version: "1.22.12"
+  # 1.24 is EOL since 2026-02-11 (kept for legacy projects)
+  - "1.24.13"
+  - "1.25.12"
+  - "1.26.5"
+default_version: "1.25.12"
 package_manager: go
 
 system_dependencies:
