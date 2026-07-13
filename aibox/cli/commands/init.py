@@ -7,6 +7,7 @@ configurations through an interactive wizard with beautiful terminal output.
 
 from pathlib import Path
 
+import questionary
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
@@ -111,44 +112,49 @@ def init_command() -> None:
         default_name = cwd.name
         project_name = Prompt.ask("\n[cyan]Project name[/cyan]", default=default_name)
 
-        # Profile selection
-        console.print("\n[bold cyan]Available profiles:[/bold cyan]")
+        # Profile selection (interactive multi-select)
+        console.print()
         profile_loader = ProfileLoader()
         available_profiles = profile_loader.list_profiles_with_info()
+        profiles_by_name = {info["name"]: info for info in available_profiles}
 
-        for i, profile_info in enumerate(available_profiles, 1):
-            name = profile_info["name"]
-            desc = profile_info["description"]
-            versions = profile_info["versions"]
-            console.print(f"  {i}. [bold]{name}[/bold] - {desc}")
-            console.print(f"     [dim]Versions: {versions}[/dim]")
-
-        profile_input = Prompt.ask(
-            "\n[cyan]Select profiles[/cyan] (comma-separated numbers, e.g., '1,3', or press Enter to skip)",
-            default="",
-        )
+        selected_names: list[str] = []
+        if available_profiles:
+            profile_choices = [
+                questionary.Choice(
+                    title=f"{info['name']} — {info['description']} ({info['versions']})",
+                    value=info["name"],
+                )
+                for info in available_profiles
+            ]
+            checkbox_answer = questionary.checkbox(
+                "Select profiles (space to toggle, enter to confirm)",
+                choices=profile_choices,
+            ).ask()
+            # ask() returns None on Ctrl+C/EOF - treat as "no profiles selected"
+            if checkbox_answer is not None:
+                selected_names = list(checkbox_answer)
 
         selected_profiles = []
-        for num_str in profile_input.split(","):
-            try:
-                idx = int(num_str.strip()) - 1
-                if 0 <= idx < len(available_profiles):
-                    profile_name = available_profiles[idx]["name"]
-                    # Ask for version
-                    versions_str = available_profiles[idx]["versions"]
-                    console.print(
-                        f"\n[dim]Available versions for {profile_name}: {versions_str}[/dim]"
-                    )
-                    version = Prompt.ask(
-                        f"[cyan]Version for {profile_name}[/cyan] (leave blank for default)",
-                        default="",
-                    )
-                    if version:
-                        selected_profiles.append(f"{profile_name}:{version}")
-                    else:
-                        selected_profiles.append(profile_name)
-            except (ValueError, IndexError):
-                console.print(f"[yellow]Invalid selection: {num_str}[/yellow]")
+        for profile_name in selected_names:
+            info = profiles_by_name[profile_name]
+            default_version = info["default_version"]
+            version_choices = [
+                questionary.Choice(title=f"default ({default_version})", value="")
+            ]
+            for available_version in info["versions_list"]:
+                version_choices.append(
+                    questionary.Choice(title=available_version, value=available_version)
+                )
+            # ask() returns None on Ctrl+C/EOF - treat as "use default"
+            version = questionary.select(
+                f"Version for {profile_name}",
+                choices=version_choices,
+            ).ask()
+            if version:
+                selected_profiles.append(f"{profile_name}:{version}")
+            else:
+                selected_profiles.append(profile_name)
 
         if not selected_profiles:
             console.print(

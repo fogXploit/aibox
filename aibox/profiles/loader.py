@@ -78,14 +78,15 @@ class ProfileLoader:
 
         return profiles
 
-    def list_profiles_with_info(self) -> list[dict[str, str]]:
+    def list_profiles_with_info(self) -> list[dict[str, str | list[str]]]:
         """
         List profiles with their descriptions and versions.
 
         Returns:
-            List of dicts with name, description, and versions
+            List of dicts with name, description, versions (display string),
+            versions_list (raw list), and default_version
         """
-        profiles = []
+        profiles: list[dict[str, str | list[str]]] = []
         for name in self.list_profiles():
             try:
                 profile = self._load_profile_definition(name)
@@ -94,6 +95,7 @@ class ProfileLoader:
                         "name": profile.name,
                         "description": profile.description,
                         "versions": ", ".join(profile.versions),
+                        "versions_list": list(profile.versions),
                         "default_version": profile.default_version,
                     }
                 )
@@ -179,8 +181,8 @@ class ProfileLoader:
             ("python", None)
             >>> _parse_spec("python:3.12")
             ("python", "3.12")
-            >>> _parse_spec("nodejs:20")
-            ("nodejs", "20")
+            >>> _parse_spec("nodejs:24")
+            ("nodejs", "24")
         """
         parts = spec.split(":", 1)
         name = parts[0].strip()
