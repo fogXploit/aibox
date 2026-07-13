@@ -44,7 +44,10 @@ def profile_list() -> None:
         console.print()
         console.print(table)
         console.print(f"\n[dim]Total: {len(all_profiles)} profiles[/dim]\n")
-        console.print("[bold]Usage:[/bold] aibox start --profiles python:3.12,nodejs:20\n")
+        console.print(
+            "Profiles are selected during [cyan]aibox init[/cyan] "
+            "and stored in the project config.\n"
+        )
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")

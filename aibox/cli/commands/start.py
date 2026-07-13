@@ -18,6 +18,7 @@ from rich.prompt import Confirm, IntPrompt
 from rich.table import Table
 from rich.text import Text
 
+from aibox.cli.commands.common import ANTIGRAVITY_AUTH_PANEL_TEXT
 from aibox.config.loader import load_project_config
 from aibox.containers.orchestrator import ContainerOrchestrator
 from aibox.containers.slot import SlotManager
@@ -137,13 +138,7 @@ def _slot_wizard(project_root: Path) -> tuple[int, str | None]:
         console.print()
         console.print(
             Panel(
-                "[bold yellow]Gemini Authentication Recommendation[/bold yellow]\n\n"
-                "Gemini CLI authenticates with OAuth on a random local port.\n"
-                "When you configure a Gemini slot, a short-lived container will run\n"
-                "`gemini login` on the host network so the browser callback works.\n\n"
-                "You'll see a login URL in the terminal; complete the flow in your browser\n"
-                "and the session will be stored under this slot's .gemini/ directory.\n"
-                "No API keys are used or required.",
+                ANTIGRAVITY_AUTH_PANEL_TEXT,
                 border_style="yellow",
                 padding=(1, 2),
             )

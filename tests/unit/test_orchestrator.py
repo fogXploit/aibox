@@ -165,6 +165,133 @@ class TestContainerOrchestratorStartContainer:
     @patch("aibox.containers.orchestrator.DockerfileGenerator")
     @patch("aibox.containers.orchestrator.ContainerManager")
     @patch("aibox.containers.orchestrator.VolumeManager")
+    def test_start_container_recreates_existing_container_from_outdated_image(
+        self,
+        mock_volume_mgr: Mock,
+        mock_container_mgr: Mock,
+        mock_dockerfile_gen: Mock,
+        _mock_slot_mgr: Mock,
+        mock_registry: Mock,
+        mock_load_config: Mock,
+        tmp_path: Path,
+    ) -> None:
+        """A preserved container built from an outdated provider image is recreated."""
+        config = Config(project=ProjectConfig(name="test"))
+        mock_load_config.return_value = config
+
+        mock_provider = Mock()
+        mock_provider.validate_config = Mock()
+        mock_provider.get_docker_env_vars.return_value = {}
+        mock_provider.get_required_ports.return_value = {}
+        mock_registry.get_provider.return_value = mock_provider
+
+        mock_dockerfile_gen.return_value.generate.return_value = "FROM debian:bookworm-slim"
+        mock_dockerfile_gen.return_value.generate_provider_layer.return_value = (
+            "FROM base\nRUN npm install -g provider"
+        )
+        mock_dockerfile_gen.return_value.generate_build_args.return_value = {}
+
+        # All images are cached; no builds needed
+        mock_container_mgr.return_value.image_exists.return_value = True
+        mock_container_mgr.return_value.tag_image = Mock()
+
+        # Existing (stopped) container built from an OUTDATED image
+        existing_container = Mock()
+        existing_container.id = "old-container"
+        mock_container_mgr.return_value.get_container.return_value = existing_container
+        mock_container_mgr.return_value.is_container_running.return_value = False
+        mock_container_mgr.return_value.container_uses_image.return_value = False
+
+        new_container = Mock()
+        new_container.id = "new-container"
+        mock_container_mgr.return_value.create_container.return_value = new_container
+
+        mock_volume_mgr.return_value.prepare_volumes.return_value = {}
+
+        progress_lines: list[str] = []
+
+        orchestrator = ContainerOrchestrator()
+        result = orchestrator.start_container(
+            project_root=tmp_path,
+            slot_number=1,
+            ai_provider="claude",
+            reuse_existing=True,
+            progress_callback=progress_lines.append,
+        )
+
+        mock_container_mgr.return_value.container_uses_image.assert_called_once()
+        mock_container_mgr.return_value.remove_container.assert_called_once_with(
+            "aibox-test-1", force=True
+        )
+        mock_container_mgr.return_value.create_container.assert_called_once()
+        mock_container_mgr.return_value.start_container.assert_called_once_with(new_container)
+        assert result.container_id == "new-container"
+        assert any("outdated image" in line for line in progress_lines)
+
+    @patch("aibox.containers.orchestrator.load_config")
+    @patch("aibox.containers.orchestrator.ProviderRegistry")
+    @patch("aibox.containers.orchestrator.SlotManager")
+    @patch("aibox.containers.orchestrator.DockerfileGenerator")
+    @patch("aibox.containers.orchestrator.ContainerManager")
+    @patch("aibox.containers.orchestrator.VolumeManager")
+    def test_start_container_reuses_existing_container_from_current_image(
+        self,
+        mock_volume_mgr: Mock,
+        mock_container_mgr: Mock,
+        mock_dockerfile_gen: Mock,
+        _mock_slot_mgr: Mock,
+        mock_registry: Mock,
+        mock_load_config: Mock,
+        tmp_path: Path,
+    ) -> None:
+        """A preserved container built from the current provider image is restarted as-is."""
+        config = Config(project=ProjectConfig(name="test"))
+        mock_load_config.return_value = config
+
+        mock_provider = Mock()
+        mock_provider.validate_config = Mock()
+        mock_provider.get_docker_env_vars.return_value = {}
+        mock_provider.get_required_ports.return_value = {}
+        mock_registry.get_provider.return_value = mock_provider
+
+        mock_dockerfile_gen.return_value.generate.return_value = "FROM debian:bookworm-slim"
+        mock_dockerfile_gen.return_value.generate_provider_layer.return_value = (
+            "FROM base\nRUN npm install -g provider"
+        )
+        mock_dockerfile_gen.return_value.generate_build_args.return_value = {}
+
+        mock_container_mgr.return_value.image_exists.return_value = True
+        mock_container_mgr.return_value.tag_image = Mock()
+
+        existing_container = Mock()
+        existing_container.id = "existing-container"
+        mock_container_mgr.return_value.get_container.return_value = existing_container
+        mock_container_mgr.return_value.is_container_running.return_value = False
+        mock_container_mgr.return_value.container_uses_image.return_value = True
+
+        mock_volume_mgr.return_value.prepare_volumes.return_value = {}
+
+        orchestrator = ContainerOrchestrator()
+        result = orchestrator.start_container(
+            project_root=tmp_path,
+            slot_number=1,
+            ai_provider="claude",
+            reuse_existing=True,
+        )
+
+        mock_container_mgr.return_value.remove_container.assert_not_called()
+        mock_container_mgr.return_value.create_container.assert_not_called()
+        mock_container_mgr.return_value.start_container.assert_called_once_with(
+            existing_container
+        )
+        assert result.container_id == "existing-container"
+
+    @patch("aibox.containers.orchestrator.load_config")
+    @patch("aibox.containers.orchestrator.ProviderRegistry")
+    @patch("aibox.containers.orchestrator.SlotManager")
+    @patch("aibox.containers.orchestrator.DockerfileGenerator")
+    @patch("aibox.containers.orchestrator.ContainerManager")
+    @patch("aibox.containers.orchestrator.VolumeManager")
     def test_start_container_auto_slot_assignment(
         self,
         mock_volume_mgr: Mock,

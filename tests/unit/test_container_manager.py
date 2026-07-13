@@ -711,3 +711,46 @@ class TestContainerManagerImageManagement:
         images = manager.list_images()
 
         assert images == []
+
+    @patch("aibox.containers.manager.docker.from_env")
+    def test_container_uses_image_match(self, mock_from_env: Mock) -> None:
+        """Container image ID matching the tag's image ID returns True."""
+        mock_client = Mock()
+        mock_client.ping.return_value = True
+        mock_client.images.get.return_value = Mock(id="sha256:abc123")
+        mock_from_env.return_value = mock_client
+
+        container = Mock()
+        container.image = Mock(id="sha256:abc123")
+
+        manager = ContainerManager()
+        assert manager.container_uses_image(container, "aibox-test-claude:hash1") is True
+        mock_client.images.get.assert_called_once_with("aibox-test-claude:hash1")
+
+    @patch("aibox.containers.manager.docker.from_env")
+    def test_container_uses_image_mismatch(self, mock_from_env: Mock) -> None:
+        """Container built from a different image returns False."""
+        mock_client = Mock()
+        mock_client.ping.return_value = True
+        mock_client.images.get.return_value = Mock(id="sha256:new456")
+        mock_from_env.return_value = mock_client
+
+        container = Mock()
+        container.image = Mock(id="sha256:old123")
+
+        manager = ContainerManager()
+        assert manager.container_uses_image(container, "aibox-test-claude:hash2") is False
+
+    @patch("aibox.containers.manager.docker.from_env")
+    def test_container_uses_image_error_returns_true(self, mock_from_env: Mock) -> None:
+        """Docker errors default to True to avoid destroying containers needlessly."""
+        mock_client = Mock()
+        mock_client.ping.return_value = True
+        mock_client.images.get.side_effect = APIError("API failure")
+        mock_from_env.return_value = mock_client
+
+        container = Mock()
+        container.image = Mock(id="sha256:old123")
+
+        manager = ContainerManager()
+        assert manager.container_uses_image(container, "aibox-test-claude:hash3") is True

@@ -6,7 +6,9 @@ name: nodejs
 description: Node.js development with npm/yarn/pnpm support
 versions:
   - "20"
-default_version: "20"
+  - "22"
+  - "24"
+default_version: "24"
 package_manager: npm
 
 system_dependencies: []
@@ -18,10 +20,9 @@ env_vars:
   NPM_CONFIG_PREFIX: "/home/aibox/npm-global"
   PATH: "/home/aibox/npm-global/bin:$PATH"
 
-docker_layers:
-  # Node.js is already installed in base image
-  # Upgrade npm to latest version
-  - "RUN npm install -g npm@latest"
+# Node.js is already installed in the base image at the selected version;
+# NodeSource packages bundle a current npm, so no extra layers are needed
+docker_layers: []
 
 post_install:
   - "npm --version"

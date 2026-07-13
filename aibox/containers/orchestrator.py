@@ -289,6 +289,22 @@ class ContainerOrchestrator:
         container = None
         existing_container = container_manager.get_container(container_name)
 
+        # Only reuse a preserved container if it was built from the CURRENT
+        # provider image; otherwise it may lack tooling added since (e.g. agy).
+        if (
+            reuse_existing
+            and existing_container
+            and not container_manager.container_uses_image(existing_container, provider_tag_hash)
+        ):
+            if progress_callback:
+                progress_callback(
+                    f"Slot container '{container_name}' was built from an outdated image; "
+                    "recreating from updated image (container filesystem changes are lost, "
+                    "volume-backed sessions are preserved)...\n"
+                )
+            container_manager.remove_container(container_name, force=True)
+            existing_container = None
+
         if reuse_existing and existing_container:
             if container_manager.is_container_running(container_name):
                 container = existing_container

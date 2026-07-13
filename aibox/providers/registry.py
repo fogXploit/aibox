@@ -30,9 +30,9 @@ class ProviderRegistry:
     provider instances and discovery methods to list available providers.
 
     The registry comes pre-populated with built-in providers:
-    - claude: ClaudeProvider (fully implemented in v1.0)
-    - gemini: GeminiProvider (placeholder for v1.1)
-    - openai: OpenAIProvider (placeholder for v1.2)
+    - claude: ClaudeProvider (Claude CLI)
+    - gemini: GeminiProvider (Antigravity CLI, `agy`)
+    - openai: OpenAIProvider (OpenAI Codex CLI)
 
     Custom providers can be registered for plugin support.
 

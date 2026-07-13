@@ -17,6 +17,7 @@ from rich.prompt import Confirm, IntPrompt
 from rich.table import Table
 from rich.text import Text
 
+from aibox.cli.commands.common import ANTIGRAVITY_AUTH_PANEL_TEXT
 from aibox.cli.commands.start import _select_provider
 from aibox.config.loader import load_config, load_project_config
 from aibox.config.models import Config
@@ -248,13 +249,7 @@ def slot_add(project_root: Path) -> None:
             console.print()
             console.print(
                 Panel(
-                    "[bold yellow]Gemini Authentication Recommendation[/bold yellow]\n\n"
-                    "Gemini CLI authenticates with OAuth on a random local port.\n"
-                    "When you configure a Gemini slot, a short-lived container will run\n"
-                    "`gemini login` on the host network so the browser callback works.\n\n"
-                    "You'll see a login URL in the terminal; complete the flow in your browser\n"
-                    "and the session will be stored under this slot's `.gemini/` directory.\n"
-                    "No API keys are used or required.",
+                    ANTIGRAVITY_AUTH_PANEL_TEXT,
                     border_style="yellow",
                     padding=(1, 2),
                 )
@@ -322,21 +317,38 @@ def _stream_build_with_live(
         build_func(live_progress)
 
 
+def _gemini_session_exists(gemini_dir: Path) -> bool:
+    """
+    Check whether an Antigravity session exists under the slot's .gemini directory.
+
+    The Antigravity CLI stores its state in subdirectories of .gemini/
+    (e.g. .gemini/antigravity-cli/settings.json), so search recursively
+    for any non-empty file.
+    """
+    if not gemini_dir.exists():
+        return False
+    try:
+        return any(p.is_file() and p.stat().st_size > 0 for p in gemini_dir.rglob("*"))
+    except OSError:
+        return False
+
+
 def _ensure_gemini_session(project_root: Path, slot_number: int) -> None:
     """
-    Run a short-lived Gemini login container (host network) if no session exists.
+    Run a short-lived Antigravity login container (host network) if no session exists.
+
+    `agy` is a persistent interactive TUI, so the container is started with a
+    keep-alive command and `agy` runs via an interactive `docker exec` TTY.
+    The first interactive run triggers Google sign-in; the user exits agy
+    (/quit or Ctrl+C) once sign-in completes.
     """
     storage_dir = get_project_storage_dir(project_root)
     slot_dir = Path.home() / ".aibox" / "projects" / storage_dir / "slots" / f"slot-{slot_number}"
     gemini_dir = slot_dir / ".gemini"
-    if gemini_dir.exists():
-        try:
-            if any(p.is_file() and p.stat().st_size > 0 for p in gemini_dir.iterdir()):
-                return
-        except OSError:
-            pass
+    if _gemini_session_exists(gemini_dir):
+        return
 
-    console.print("[bold blue]Running Gemini login for this slot...[/bold blue]")
+    console.print("[bold blue]Running Antigravity login for this slot...[/bold blue]")
 
     provider = ProviderRegistry.get_provider("gemini")
     config = load_config(str(project_root))
@@ -355,28 +367,31 @@ def _ensure_gemini_session(project_root: Path, slot_number: int) -> None:
     )
     env_vars = provider.get_docker_env_vars()
 
+    container_name = f"aibox-gemini-login-{slot_number}"
     container = container_manager.create_container(
         image=f"aibox-{config.project.name}-gemini:latest",
-        name=f"aibox-gemini-login-{slot_number}",
+        name=container_name,
         volumes=volumes,
         environment=env_vars,
-        command=["gemini", "login"],
+        command=["sleep", "infinity"],
         network_mode="host",
     )
 
     try:
         container_manager.start_container(container)
-        with contextlib.suppress(Exception):
-            for chunk in container.logs(stream=True, follow=True):
-                try:
-                    console.print(chunk.decode("utf-8", errors="ignore"), end="")
-                except Exception:
-                    continue
+        console.print(
+            "\n[bold]Complete the Google sign-in in your browser, then exit the "
+            "Antigravity CLI (type /quit or press Ctrl+C) to continue slot setup.[/bold]\n"
+        )
+        # agy never exits on its own; give the user a real TTY and ignore the
+        # exec exit code (Ctrl+C is a valid way to leave agy after sign-in).
+        container_manager.attach_interactive(container_name, ["agy"])
 
-        result = container.wait()
-        status_code = result.get("StatusCode") if isinstance(result, dict) else None
-        if status_code not in (0, None):
-            raise RuntimeError(f"Gemini login failed with status {status_code}")
+        if not _gemini_session_exists(gemini_dir):
+            raise RuntimeError(
+                "No Antigravity session was captured. Run 'aibox slot add' again and "
+                "complete the Google sign-in before exiting the Antigravity CLI."
+            )
     finally:
         with contextlib.suppress(Exception):
             container.remove(force=True)
@@ -468,10 +483,15 @@ def _ensure_provider_image(
     provider: AIProvider,
     progress_callback: Callable[[str], None] | None = None,
 ) -> None:
-    """Build provider image if missing."""
+    """
+    Build provider image if missing.
+
+    Deliberately does NOT short-circuit on an existing :latest tag: a stale
+    :latest (e.g. built before the Antigravity migration) must not suppress the
+    content-hash rebuild logic below, which only rebuilds when the hash-tagged
+    image is missing and retags :latest either way.
+    """
     image_tag_latest = f"aibox-{config.project.name}-{provider.name}:latest"
-    if container_manager.image_exists(image_tag_latest):
-        return
 
     profile_loader = ProfileLoader()
     profiles_with_versions = [

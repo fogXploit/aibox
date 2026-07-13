@@ -131,7 +131,7 @@ class TestProviderRegistryDetails:
         details = ProviderRegistry.get_provider_details()
 
         assert details["claude"]["display_name"] == "Claude CLI"
-        assert details["gemini"]["display_name"] == "Gemini CLI"
+        assert details["gemini"]["display_name"] == "Antigravity CLI"
         assert details["openai"]["display_name"] == "Codex CLI"
 
     @patch("subprocess.run")

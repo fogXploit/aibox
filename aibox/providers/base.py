@@ -69,7 +69,7 @@ class AIProvider(ABC):
         Get the human-readable provider name (for UI/logging).
 
         Returns:
-            Display name string (e.g., "Claude CLI", "Gemini CLI")
+            Display name string (e.g., "Claude CLI", "Antigravity CLI")
 
         Example:
             >>> provider.display_name
@@ -159,7 +159,7 @@ class AIProvider(ABC):
         Get the command to run the AI CLI interactively.
 
         This returns the command that should be executed to start the AI CLI
-        in interactive mode (e.g., ["claude"] for Claude CLI, ["gemini"] for Gemini).
+        in interactive mode (e.g., ["claude"] for Claude CLI, ["agy"] for Antigravity).
 
         Returns:
             List of command parts to execute

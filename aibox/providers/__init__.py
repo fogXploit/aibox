@@ -3,9 +3,9 @@ AI provider implementations and registry.
 
 This package provides:
 - AIProvider abstract base class defining the provider interface
-- ClaudeProvider fully implemented for Claude CLI (v1.0)
-- GeminiProvider placeholder (coming in v1.1)
-- OpenAIProvider placeholder (coming in v1.2)
+- ClaudeProvider for Claude CLI
+- GeminiProvider for Google's Antigravity CLI (`agy`; provider key stays "gemini")
+- OpenAIProvider for OpenAI Codex CLI
 - ProviderRegistry for managing and discovering providers
 
 Example:

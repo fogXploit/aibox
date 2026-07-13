@@ -1,16 +1,18 @@
 """
-Gemini CLI provider implementation.
+Antigravity CLI provider implementation.
 
-This module implements the AIProvider interface for Google's Gemini CLI.
-It handles:
-- Gemini CLI installation and detection
-- Docker volume mounts for .gemini configuration directory
+This module implements the AIProvider interface for Google's Antigravity CLI
+(`agy`), the successor to the retired Gemini CLI. It handles:
+- Antigravity CLI installation and detection
+- Docker volume mounts for the .gemini configuration directory
+  (Antigravity CLI reuses ~/.gemini)
 
-The Gemini provider mounts the project's .gemini directory to persist
-configuration and session state across container restarts.
+The provider keeps the name "gemini" for config compatibility and mounts the
+project's .gemini directory to persist configuration and session state across
+container restarts.
 
 Authentication:
-- OAuth handled by `gemini login` inside the container (random local port)
+- Google sign-in is triggered by running `agy` interactively inside the container
 """
 
 import subprocess
@@ -21,14 +23,16 @@ from aibox.providers.base import AIProvider
 
 class GeminiProvider(AIProvider):
     """
-    Google Gemini CLI provider implementation.
+    Google Antigravity CLI provider implementation.
 
-    This provider integrates Google's Gemini CLI with aibox containers.
-    Gemini CLI is a command-line interface for interacting with Google's
-    Gemini AI models with advanced reasoning capabilities.
+    This provider integrates Google's Antigravity CLI (`agy`), the successor
+    to the retired Gemini CLI, with aibox containers. The provider name stays
+    "gemini" for config compatibility, and Antigravity CLI still uses the
+    ~/.gemini config directory.
 
-    Authentication is handled by the Gemini CLI via OAuth.
-    Configuration is persisted in the .gemini directory across container restarts.
+    Authentication is handled by the Antigravity CLI via Google sign-in on
+    first run. Configuration is persisted in the .gemini directory across
+    container restarts.
 
     Example:
         >>> provider = GeminiProvider()
@@ -37,13 +41,15 @@ class GeminiProvider(AIProvider):
         >>> provider.is_installed()
         True
         >>> provider.get_cli_command()
-        ['gemini']
+        ['agy']
     """
 
     @property
     def name(self) -> str:
         """
         Get the provider identifier.
+
+        Kept as "gemini" for config compatibility with existing setups.
 
         Returns:
             The string "gemini"
@@ -56,23 +62,23 @@ class GeminiProvider(AIProvider):
         Get the human-readable provider name.
 
         Returns:
-            The string "Gemini CLI"
+            The string "Antigravity CLI"
         """
-        return "Gemini CLI"
+        return "Antigravity CLI"
 
     def is_installed(self) -> bool:
         """
-        Check if Gemini CLI is installed and available.
+        Check if Antigravity CLI is installed and available.
 
-        Runs `gemini --version` to verify the CLI is accessible.
+        Runs `agy --version` to verify the CLI is accessible.
 
         Returns:
-            True if Gemini CLI is installed and responds to --version,
+            True if Antigravity CLI is installed and responds to --version,
             False otherwise
         """
         try:
             result = subprocess.run(
-                ["gemini", "--version"],
+                ["agy", "--version"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -86,28 +92,28 @@ class GeminiProvider(AIProvider):
         Get environment variables to pass to Docker container.
 
         Returns:
-            Empty dictionary (Gemini CLI handles OAuth login interactively)
+            Empty dictionary (Antigravity CLI handles sign-in interactively)
         """
         return {}
 
     def validate_config(self, config: Config) -> None:
         """
-        Validate Gemini provider configuration.
+        Validate provider configuration.
 
-        No validation is performed. Gemini CLI handles all authentication
+        No validation is performed. Antigravity CLI handles all authentication
         independently via its own config directory (.gemini/), which is
         mounted from the host to persist sessions across container restarts.
 
         Args:
             config: The aibox configuration (not currently used)
         """
-        # No validation needed - Gemini CLI handles authentication independently
+        # No validation needed - Antigravity CLI handles authentication independently
 
     def get_mount_paths(self) -> list[str]:
         """
-        Get all configuration paths for Gemini CLI.
+        Get all configuration paths for Antigravity CLI.
 
-        Gemini CLI stores configuration in ~/.gemini/ directory.
+        Antigravity CLI reuses the ~/.gemini/ configuration directory.
 
         Returns:
             List containing [".gemini"]
@@ -116,9 +122,9 @@ class GeminiProvider(AIProvider):
 
     def get_cli_command(self) -> list[str]:
         """
-        Get the command to run Gemini CLI interactively.
+        Get the command to run Antigravity CLI interactively.
 
         Returns:
-            List containing the command ["gemini"]
+            List containing the command ["agy"]
         """
-        return ["gemini"]
+        return ["agy"]

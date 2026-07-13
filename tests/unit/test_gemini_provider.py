@@ -25,7 +25,7 @@ class TestGeminiProviderProperties:
     def test_display_name_property(self) -> None:
         """Test provider display name is human-readable."""
         provider = GeminiProvider()
-        assert provider.display_name == "Gemini CLI"
+        assert provider.display_name == "Antigravity CLI"
 
     def test_mount_paths(self) -> None:
         """Test mount paths include directory."""
@@ -33,9 +33,9 @@ class TestGeminiProviderProperties:
         assert provider.get_mount_paths() == [".gemini"]
 
     def test_cli_command(self) -> None:
-        """Test CLI command is 'gemini'."""
+        """Test CLI command is 'agy'."""
         provider = GeminiProvider()
-        assert provider.get_cli_command() == ["gemini"]
+        assert provider.get_cli_command() == ["agy"]
 
 
 class TestGeminiProviderConfigValidation:
@@ -63,14 +63,14 @@ class TestGeminiProviderInstallation:
 
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "gemini 1.0.0"
+        mock_result.stdout = "agy 1.0.0"
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
             result = provider.is_installed()
 
             assert result is True
             mock_run.assert_called_once_with(
-                ["gemini", "--version"],
+                ["agy", "--version"],
                 capture_output=True,
                 text=True,
                 check=False,

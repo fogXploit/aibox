@@ -58,6 +58,14 @@ class TestProfileList:
         assert mock_loader.load_profile.call_count == 2
         mock_console.print.assert_called()
 
+        # Verify the usage hint is accurate: profiles are chosen via `aibox init`,
+        # and `aibox start` has no --profiles option.
+        printed = " ".join(
+            str(call.args[0]) for call in mock_console.print.call_args_list if call.args
+        )
+        assert "--profiles" not in printed
+        assert "aibox init" in printed
+
     @patch("aibox.cli.commands.profile.ProfileLoader")
     @patch("aibox.cli.commands.profile.console")
     def test_profile_list_empty(self, mock_console, mock_loader_class):

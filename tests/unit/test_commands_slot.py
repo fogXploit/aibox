@@ -10,6 +10,7 @@ from rich.console import Console
 from aibox.cli.commands.slot import (
     _ensure_gemini_session,
     _ensure_openai_session,
+    _ensure_provider_image,
     slot_add,
     slot_cleanup,
     slot_list,
@@ -308,12 +309,22 @@ class TestSlotAdd:
         config.global_config = MagicMock(docker=MagicMock(base_image="debian"))
         mock_load_config.return_value = config
 
+        gemini_dir = (
+            tmp_path / ".aibox" / "projects" / "proj-123" / "slots" / "slot-1" / ".gemini"
+        )
+
+        def fake_attach(_name, _command):
+            session_file = gemini_dir / "antigravity-cli" / "settings.json"
+            session_file.parent.mkdir(parents=True, exist_ok=True)
+            session_file.write_text("{}")
+            return 0
+
         mock_container = MagicMock()
-        mock_container.wait.return_value = {"StatusCode": 0}
         mock_container_manager_obj = MagicMock(
             image_exists=MagicMock(return_value=True),
             create_container=MagicMock(return_value=mock_container),
             tag_image=MagicMock(),
+            attach_interactive=MagicMock(side_effect=fake_attach),
         )
         mock_container_manager.return_value = mock_container_manager_obj
 
@@ -327,7 +338,9 @@ class TestSlotAdd:
 
         mock_container_manager.assert_called_once()
         mock_container_manager_obj.create_container.assert_called_once()
-        mock_container.wait.assert_called_once()
+        mock_container_manager_obj.attach_interactive.assert_called_once_with(
+            "aibox-gemini-login-1", ["agy"]
+        )
 
     @patch("aibox.cli.commands.slot.console")
     @patch("aibox.cli.commands.slot.VolumeManager")
@@ -335,18 +348,144 @@ class TestSlotAdd:
     @patch("aibox.cli.commands.slot.load_config")
     @patch("aibox.cli.commands.slot.ProviderRegistry.get_provider")
     @patch("aibox.cli.commands.slot.get_project_storage_dir")
-    def test_ensure_gemini_session_streams_chunks_on_same_line(
+    def test_ensure_gemini_session_attaches_interactive_agy(
         self,
         mock_storage_dir,
         mock_get_provider,
         mock_load_config,
         mock_container_manager,
         mock_volume_manager,
-        mock_console,
+        _mock_console,
         temp_project_root,
         tmp_path,
     ):
-        """Stream Gemini login output without inserting newlines per chunk."""
+        """Login container stays alive and the user gets an interactive agy TTY."""
+        mock_storage_dir.return_value = "proj-123"
+
+        mock_provider = MagicMock()
+        mock_provider.name = "gemini"
+        mock_provider.get_docker_env_vars.return_value = {}
+        mock_provider.get_mount_paths.return_value = [".gemini"]
+        mock_get_provider.return_value = mock_provider
+
+        config = MagicMock()
+        config.project = MagicMock(name="projname", profiles=[], mounts=[])
+        config.global_config = MagicMock(docker=MagicMock(base_image="debian"))
+        mock_load_config.return_value = config
+
+        gemini_dir = (
+            tmp_path / ".aibox" / "projects" / "proj-123" / "slots" / "slot-1" / ".gemini"
+        )
+
+        def fake_attach(_name, _command):
+            # Simulate agy writing its session into a subdirectory of .gemini
+            session_file = gemini_dir / "antigravity-cli" / "settings.json"
+            session_file.parent.mkdir(parents=True, exist_ok=True)
+            session_file.write_text("{}")
+            return 0
+
+        mock_container = MagicMock()
+        mock_container_manager_obj = MagicMock(
+            image_exists=MagicMock(return_value=True),
+            create_container=MagicMock(return_value=mock_container),
+            tag_image=MagicMock(),
+            attach_interactive=MagicMock(side_effect=fake_attach),
+        )
+        mock_container_manager.return_value = mock_container_manager_obj
+
+        mock_volume_manager.return_value.prepare_volumes.return_value = {
+            "/host": {"bind": "/container", "mode": "rw"}
+        }
+
+        with patch.object(Path, "home", return_value=tmp_path):
+            _ensure_gemini_session(temp_project_root, slot_number=1)
+
+        create_kwargs = mock_container_manager_obj.create_container.call_args.kwargs
+        assert create_kwargs["command"] == ["sleep", "infinity"]
+        mock_container_manager_obj.attach_interactive.assert_called_once_with(
+            "aibox-gemini-login-1", ["agy"]
+        )
+        mock_container.remove.assert_called_once_with(force=True)
+
+    @patch("aibox.cli.commands.slot.console")
+    @patch("aibox.cli.commands.slot.VolumeManager")
+    @patch("aibox.cli.commands.slot.ContainerManager")
+    @patch("aibox.cli.commands.slot.load_config")
+    @patch("aibox.cli.commands.slot.ProviderRegistry.get_provider")
+    @patch("aibox.cli.commands.slot.get_project_storage_dir")
+    def test_ensure_gemini_session_ignores_exit_code_when_session_captured(
+        self,
+        mock_storage_dir,
+        mock_get_provider,
+        mock_load_config,
+        mock_container_manager,
+        mock_volume_manager,
+        _mock_console,
+        temp_project_root,
+        tmp_path,
+    ):
+        """Nonzero exit (e.g. Ctrl+C out of agy) is fine as long as a session exists."""
+        mock_storage_dir.return_value = "proj-123"
+
+        mock_provider = MagicMock()
+        mock_provider.name = "gemini"
+        mock_provider.get_docker_env_vars.return_value = {}
+        mock_provider.get_mount_paths.return_value = [".gemini"]
+        mock_get_provider.return_value = mock_provider
+
+        config = MagicMock()
+        config.project = MagicMock(name="projname", profiles=[], mounts=[])
+        config.global_config = MagicMock(docker=MagicMock(base_image="debian"))
+        mock_load_config.return_value = config
+
+        gemini_dir = (
+            tmp_path / ".aibox" / "projects" / "proj-123" / "slots" / "slot-1" / ".gemini"
+        )
+
+        def fake_attach(_name, _command):
+            session_file = gemini_dir / "antigravity-cli" / "settings.json"
+            session_file.parent.mkdir(parents=True, exist_ok=True)
+            session_file.write_text("{}")
+            return 130  # User exited agy with Ctrl+C
+
+        mock_container = MagicMock()
+        mock_container.wait.return_value = {"StatusCode": 130}
+        mock_container_manager_obj = MagicMock(
+            image_exists=MagicMock(return_value=True),
+            create_container=MagicMock(return_value=mock_container),
+            tag_image=MagicMock(),
+            attach_interactive=MagicMock(side_effect=fake_attach),
+        )
+        mock_container_manager.return_value = mock_container_manager_obj
+
+        mock_volume_manager.return_value.prepare_volumes.return_value = {
+            "/host": {"bind": "/container", "mode": "rw"}
+        }
+
+        with patch.object(Path, "home", return_value=tmp_path):
+            # Must not raise despite the nonzero exit code
+            _ensure_gemini_session(temp_project_root, slot_number=1)
+
+        mock_container.remove.assert_called_once_with(force=True)
+
+    @patch("aibox.cli.commands.slot.console")
+    @patch("aibox.cli.commands.slot.VolumeManager")
+    @patch("aibox.cli.commands.slot.ContainerManager")
+    @patch("aibox.cli.commands.slot.load_config")
+    @patch("aibox.cli.commands.slot.ProviderRegistry.get_provider")
+    @patch("aibox.cli.commands.slot.get_project_storage_dir")
+    def test_ensure_gemini_session_raises_when_no_session_captured(
+        self,
+        mock_storage_dir,
+        mock_get_provider,
+        mock_load_config,
+        mock_container_manager,
+        mock_volume_manager,
+        _mock_console,
+        temp_project_root,
+        tmp_path,
+    ):
+        """Raise a helpful error if the user exits agy without completing sign-in."""
         mock_storage_dir.return_value = "proj-123"
 
         mock_provider = MagicMock()
@@ -362,11 +501,11 @@ class TestSlotAdd:
 
         mock_container = MagicMock()
         mock_container.wait.return_value = {"StatusCode": 0}
-        mock_container.logs.return_value = iter([b"h", b"t", b"t", b"p", b"://", b"example.com"])
-
         mock_container_manager_obj = MagicMock(
             image_exists=MagicMock(return_value=True),
             create_container=MagicMock(return_value=mock_container),
+            tag_image=MagicMock(),
+            attach_interactive=MagicMock(return_value=0),
         )
         mock_container_manager.return_value = mock_container_manager_obj
 
@@ -374,11 +513,37 @@ class TestSlotAdd:
             "/host": {"bind": "/container", "mode": "rw"}
         }
 
+        with (
+            patch.object(Path, "home", return_value=tmp_path),
+            pytest.raises(RuntimeError, match="aibox slot add"),
+        ):
+            _ensure_gemini_session(temp_project_root, slot_number=1)
+
+        mock_container.remove.assert_called_once_with(force=True)
+
+    @patch("aibox.cli.commands.slot.console")
+    @patch("aibox.cli.commands.slot.ContainerManager")
+    @patch("aibox.cli.commands.slot.get_project_storage_dir")
+    def test_ensure_gemini_session_skips_when_session_in_subdirectory(
+        self,
+        mock_storage_dir,
+        mock_container_manager,
+        _mock_console,
+        temp_project_root,
+        tmp_path,
+    ):
+        """Skip login when agy stored its session in a subdirectory of .gemini."""
+        mock_storage_dir.return_value = "proj-123"
+
+        slot_dir = tmp_path / ".aibox" / "projects" / "proj-123" / "slots" / "slot-1"
+        session_file = slot_dir / ".gemini" / "antigravity-cli" / "settings.json"
+        session_file.parent.mkdir(parents=True, exist_ok=True)
+        session_file.write_text("{}")
+
         with patch.object(Path, "home", return_value=tmp_path):
             _ensure_gemini_session(temp_project_root, slot_number=1)
 
-        for chunk in ["h", "t", "t", "p", "://", "example.com"]:
-            mock_console.print.assert_any_call(chunk, end="")
+        mock_container_manager.assert_not_called()
 
     @patch("aibox.cli.commands.slot.ContainerManager")
     @patch("aibox.cli.commands.slot.get_project_storage_dir")
@@ -603,3 +768,32 @@ class TestSlotAdd:
         # Execute and verify
         with pytest.raises(Exception, match="Failed to cleanup"):
             slot_cleanup(temp_project_root)
+
+
+class TestEnsureProviderImage:
+    """Tests for _ensure_provider_image helper."""
+
+    def test_rebuilds_when_hash_image_missing_despite_stale_latest(self):
+        """A stale :latest tag must not short-circuit the content-hash rebuild logic."""
+        config = MagicMock()
+        config.project = MagicMock(profiles=[], mounts=[])
+        config.project.name = "projname"
+        config.global_config = MagicMock(docker=MagicMock(base_image="debian"))
+
+        provider = MagicMock()
+        provider.name = "gemini"
+
+        container_manager = MagicMock()
+        # :latest tags exist (stale, pre-0.4.0) and the base hash image is cached,
+        # but the current provider content-hash image is missing -> must rebuild.
+        container_manager.image_exists.side_effect = lambda tag: (
+            tag.endswith(":latest") or "-base:" in tag
+        )
+
+        _ensure_provider_image(container_manager, config, provider)
+
+        assert container_manager.build_image.call_count == 1
+        built_tag = container_manager.build_image.call_args.kwargs["tag"]
+        assert built_tag.startswith("aibox-projname-gemini:")
+        assert not built_tag.endswith(":latest")
+        container_manager.tag_image.assert_any_call(built_tag, "aibox-projname-gemini:latest")

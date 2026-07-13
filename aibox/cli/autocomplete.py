@@ -18,7 +18,7 @@ def complete_profile_name() -> list[str]:
     Autocomplete profile names with versions.
 
     Returns:
-        List of profile specifications (e.g., ["python", "python:3.11", "nodejs:20"])
+        List of profile specifications (e.g., ["python", "python:3.11", "nodejs:24"])
     """
     try:
         loader = ProfileLoader()

@@ -106,8 +106,8 @@ def images_list(project_root: Path) -> None:
         # Show hint about cleanup
         console.print("[dim]💡 Run [cyan]aibox images prune[/cyan] to remove unused images[/dim]\n")
 
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+    except Exception:
+        # Propagate to the main CLI handler, which formats the error for the user
         raise
 
 
@@ -168,6 +168,6 @@ def images_prune(project_root: Path | None = None, all_projects: bool = False) -
     except KeyboardInterrupt:
         console.print("\n\n[yellow]⚠[/yellow]  Cancelled by user\n")
         raise SystemExit(1) from None
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+    except Exception:
+        # Propagate to the main CLI handler, which formats the error for the user
         raise

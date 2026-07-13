@@ -294,7 +294,7 @@ class TestDockerfileGenerator:
 
         # Test with no profiles
         dockerfile = generator.generate([])
-        assert "Install Node.js 20 (required for AI CLIs)" in dockerfile
+        assert "Install Node.js 24 (required for AI CLIs)" in dockerfile
         assert "apt-get install -y --no-install-recommends" in dockerfile
         assert "nodejs" in dockerfile
         # Verify curl is installed for NodeSource setup
@@ -309,11 +309,44 @@ class TestDockerfileGenerator:
             system_dependencies=["python3-dev"],
         )
         dockerfile = generator.generate([(profile, "3.12")])
-        assert "Install Node.js 20 (required for AI CLIs)" in dockerfile
+        assert "Install Node.js 24 (required for AI CLIs)" in dockerfile
         assert "apt-get install -y --no-install-recommends" in dockerfile
         assert "nodejs" in dockerfile
         # Verify curl is installed for NodeSource setup
         assert "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" in dockerfile
+
+    def test_default_nodejs_version_matches_nodejs_profile_default(self) -> None:
+        """DEFAULT_NODEJS_VERSION must stay in sync with the nodejs profile definition."""
+        from aibox.profiles.generator import DEFAULT_NODEJS_VERSION
+        from aibox.profiles.loader import ProfileLoader
+
+        profile, _version = ProfileLoader().load_profile("nodejs")
+        assert profile.default_version == DEFAULT_NODEJS_VERSION
+
+    def test_nodejs_default_version_without_nodejs_profile(self) -> None:
+        """Test that Node.js 24 (Active LTS) is installed when no nodejs profile is selected."""
+        generator = DockerfileGenerator()
+        dockerfile = generator.generate([])
+
+        assert "node_24.x" in dockerfile
+        assert "# Install Node.js 24 (required for AI CLIs)" in dockerfile
+
+    def test_nodejs_profile_version_used_for_base_install(self) -> None:
+        """Test that the selected nodejs profile version drives the NodeSource repo."""
+        nodejs_profile = ProfileDefinition(
+            name="nodejs",
+            description="Node.js",
+            versions=["20", "22", "24"],
+            default_version="24",
+        )
+
+        generator = DockerfileGenerator()
+        dockerfile = generator.generate([(nodejs_profile, "22")])
+
+        assert "node_22.x" in dockerfile
+        assert "# Install Node.js 22 (required for AI CLIs)" in dockerfile
+        assert "node_20.x" not in dockerfile
+        assert "node_24.x" not in dockerfile
 
     def test_npm_environment_variables(self) -> None:
         """Test that npm environment variables are set correctly."""
@@ -322,7 +355,7 @@ class TestDockerfileGenerator:
 
         assert "# Configure npm global package installation directory" in dockerfile
         assert 'ENV NPM_CONFIG_PREFIX="/home/aibox/npm-global"' in dockerfile
-        assert 'ENV PATH="/home/aibox/npm-global/bin:$PATH"' in dockerfile
+        assert 'ENV PATH="/home/aibox/npm-global/bin:/home/aibox/.local/bin:$PATH"' in dockerfile
 
     def test_nodejs_installed_before_profiles(self) -> None:
         """Test that Node.js is installed before profile-specific installations."""
@@ -360,8 +393,24 @@ class TestDockerfileGenerator:
         generator = DockerfileGenerator()
         dockerfile = generator.generate([], ai_provider="gemini")
 
-        assert "# Install Gemini CLI at build time" in dockerfile
-        assert "npm install -g @google/gemini-cli" in dockerfile
+        assert "# Install Antigravity CLI at build time" in dockerfile
+        assert "curl -fsSL https://antigravity.google/cli/install.sh | bash" in dockerfile
+
+    def test_ai_cli_installation_gemini_verifies_install(self) -> None:
+        """Test that the Antigravity CLI install is verified at build time."""
+        generator = DockerfileGenerator()
+        dockerfile = generator.generate([], ai_provider="gemini")
+
+        assert "RUN agy --version" in dockerfile
+
+        # Verification must run after the install, while still the aibox user
+        # (i.e., before the switch back to root).
+        install_idx = dockerfile.index(
+            "RUN curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        )
+        verify_idx = dockerfile.index("RUN agy --version")
+        user_root_idx = dockerfile.index("USER root", install_idx)
+        assert install_idx < verify_idx < user_root_idx
 
     def test_ai_cli_installation_openai(self) -> None:
         """Test that OpenAI CLI is installed at build time."""
@@ -485,3 +534,24 @@ class TestDockerfileGenerator:
         # ${VERSION} and ${GO_VERSION} should be replaced with 1.21
         assert "RUN go install golang.org/x/tools/gopls@1.21" in dockerfile
         assert "RUN export GOVERSION=1.21" in dockerfile
+
+    def test_generate_with_builtin_ruby_profile(self) -> None:
+        """Test generate() with the real ruby profile substitutes ${VERSION} in layers.
+
+        Proves the ${VERSION} + shell `cut` trick emits valid text: after plain
+        string substitution the layer must contain the literal version, and the
+        major.minor derivation must reference the substituted version string.
+        """
+        from aibox.profiles.loader import ProfileLoader
+
+        profile, version = ProfileLoader().load_profile("ruby:3.4.10")
+
+        generator = DockerfileGenerator()
+        dockerfile = generator.generate([(profile, version)])
+
+        assert "ruby-3.4.10.tar.gz" in dockerfile
+        # The shell-based major.minor derivation with the version substituted in
+        assert "$(echo '3.4.10' | cut -d. -f1-2)" in dockerfile
+        # No unsubstituted placeholders remain
+        assert "${VERSION}" not in dockerfile
+        assert "${RUBY_VERSION}" not in dockerfile

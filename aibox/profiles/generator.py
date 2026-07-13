@@ -9,6 +9,11 @@ Combines multiple profiles into a single Dockerfile with:
 
 from aibox.profiles.models import ProfileDefinition
 
+# Node.js version installed in the base image when no nodejs profile is selected.
+# Must match `default_version` in aibox/profiles/definitions/nodejs.yml
+# (a unit test enforces this).
+DEFAULT_NODEJS_VERSION = "24"
+
 
 class DockerfileGenerator:
     """Generates Dockerfiles from profile definitions."""
@@ -59,16 +64,21 @@ class DockerfileGenerator:
             ]
         )
 
-        # Install Node.js 20 and system packages
+        # Install Node.js and system packages
+        # Use the version from the nodejs profile if selected, otherwise the current Active LTS
+        nodejs_version = next(
+            (version for profile, version in profiles_with_versions if profile.name == "nodejs"),
+            DEFAULT_NODEJS_VERSION,
+        )
         lines.extend(
             [
-                "# Install Node.js 20 (required for AI CLIs) and system packages",
+                f"# Install Node.js {nodejs_version} (required for AI CLIs) and system packages",
                 "RUN apt-get update && \\",
                 "    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \\",
                 "    mkdir -p /etc/apt/keyrings && \\",
                 "    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | \\",
                 "    gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \\",
-                '    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \\',
+                f'    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{nodejs_version}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \\',
                 "    apt-get update && \\",
                 "    apt-get install -y --no-install-recommends \\",
             ]
@@ -97,13 +107,15 @@ class DockerfileGenerator:
             ]
         )
 
-        # Configure npm global package installation directory
-        # Note: Must NOT be under /home/aibox/.aibox since that gets mounted at runtime
+        # Configure npm global package installation directory and PATH.
+        # Note: Must NOT be under /home/aibox/.aibox since that gets mounted at runtime.
+        # /home/aibox/.local/bin must also be on PATH: the Antigravity CLI (agy)
+        # binary is installed there by the provider layer.
         lines.extend(
             [
                 "# Configure npm global package installation directory",
                 'ENV NPM_CONFIG_PREFIX="/home/aibox/npm-global"',
-                'ENV PATH="/home/aibox/npm-global/bin:$PATH"',
+                'ENV PATH="/home/aibox/npm-global/bin:/home/aibox/.local/bin:$PATH"',
                 "",
             ]
         )
@@ -369,9 +381,11 @@ class DockerfileGenerator:
         elif ai_provider == "gemini":
             lines.extend(
                 [
-                    "# Install Gemini CLI at build time (as aibox user)",
+                    "# Install Antigravity CLI at build time (as aibox user)",
                     "USER aibox",
-                    "RUN npm install -g @google/gemini-cli",
+                    "RUN curl -fsSL https://antigravity.google/cli/install.sh | bash",
+                    "# Verify the install succeeded so the build fails early if it didn't",
+                    "RUN agy --version",
                     "USER root",
                     "",
                 ]
@@ -388,7 +402,7 @@ class DockerfileGenerator:
                     "# Codex binds OAuth server to 127.0.0.1:1455 inside container",
                     "# This script forwards container_ip:1455 -> 127.0.0.1:1455",
                     "# Allows host browser to reach OAuth callback via Docker port mapping",
-                    r"RUN printf '#!/bin/bash\nset -e\n\n# Ensure npm global bin is on PATH for codex/claude/gemini\nexport PATH=\"/home/aibox/npm-global/bin:$PATH\"\n\n# Get container IP (not 127.0.0.1)\nCONTAINER_IP=$(hostname -i | awk '\''{print $1}'\'')\n\n# Start socat in background to forward from container IP to localhost\n# socat will listen for connections and forward them to 127.0.0.1:1455\n# where codex will bind its OAuth server\nsocat TCP-LISTEN:1455,fork,reuseaddr,bind=\"$CONTAINER_IP\" TCP:127.0.0.1:1455 &\nSOCAT_PID=$!\n\n# Function to cleanup on exit\ncleanup() {\n    kill $SOCAT_PID 2>/dev/null || true\n}\ntrap cleanup EXIT INT TERM\n\n# Run codex in foreground so it has access to stdin/stdout/stderr\n# This is critical for interactive use - backgrounding breaks terminal I/O\ncodex \"$@\"\n' > /usr/local/bin/codex-wrapper && chmod +x /usr/local/bin/codex-wrapper",
+                    r"RUN printf '#!/bin/bash\nset -e\n\n# Ensure npm global bin is on PATH for codex/claude\nexport PATH=\"/home/aibox/npm-global/bin:$PATH\"\n\n# Get container IP (not 127.0.0.1)\nCONTAINER_IP=$(hostname -i | awk '\''{print $1}'\'')\n\n# Start socat in background to forward from container IP to localhost\n# socat will listen for connections and forward them to 127.0.0.1:1455\n# where codex will bind its OAuth server\nsocat TCP-LISTEN:1455,fork,reuseaddr,bind=\"$CONTAINER_IP\" TCP:127.0.0.1:1455 &\nSOCAT_PID=$!\n\n# Function to cleanup on exit\ncleanup() {\n    kill $SOCAT_PID 2>/dev/null || true\n}\ntrap cleanup EXIT INT TERM\n\n# Run codex in foreground so it has access to stdin/stdout/stderr\n# This is critical for interactive use - backgrounding breaks terminal I/O\ncodex \"$@\"\n' > /usr/local/bin/codex-wrapper && chmod +x /usr/local/bin/codex-wrapper",
                     "",
                 ]
             )

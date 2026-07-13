@@ -502,6 +502,31 @@ class ContainerManager:
         status: str = str(container.status)
         return status == "running"
 
+    def container_uses_image(self, container: Container, image_tag: str) -> bool:
+        """
+        Check whether a container was created from the given image tag.
+
+        Compares the container's image ID with the image ID currently
+        referenced by the tag.
+
+        Args:
+            container: Container instance
+            image_tag: Image tag name (e.g., "aibox-myproject-claude:abc123")
+
+        Returns:
+            True if the container's image ID matches the tag's image ID.
+            Returns True on Docker errors to avoid recreating containers
+            unnecessarily.
+        """
+        try:
+            expected_image = self.client.images.get(image_tag)
+            container_image = container.image
+            if container_image is None:
+                return True
+            return bool(container_image.id == expected_image.id)
+        except (ImageNotFound, APIError, DockerException):
+            return True
+
     def attach_interactive(self, name: str, command: list[str]) -> int:
         """
         Execute command in container with interactive TTY.
