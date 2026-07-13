@@ -142,7 +142,7 @@ name: my-project
 # List of profiles to enable
 profiles:
   - python:3.12
-  - nodejs:20
+  - nodejs:24
   - rust:stable
 
 # Additional volume mounts
@@ -188,7 +188,7 @@ name: my-awesome-project
 **Format Rules:**
 - Profile names: lowercase alphanumeric, hyphens, underscores
 - Versions: alphanumeric, dots, hyphens
-- Examples: `python:3.12`, `nodejs:20`, `rust`, `go:1.22`
+- Examples: `python:3.12`, `nodejs:24`, `rust`, `go:1.25.12`, `java:21`, `ruby:3.4.10`
 
 **Examples:**
 ```yaml
@@ -199,7 +199,7 @@ profiles:
 # Multiple profiles
 profiles:
   - python:3.12
-  - nodejs:20
+  - nodejs:24
   - rust:stable
 
 # Default versions (uses profile's default)
@@ -368,7 +368,7 @@ environment:
 name: fullstack-app
 profiles:
   - python:3.12
-  - nodejs:20
+  - nodejs:24
   - postgres:15
 mounts:
   - source: ./data
@@ -387,8 +387,8 @@ environment:
 name: polyglot-project
 profiles:
   - python:3.12
-  - nodejs:20
-  - go:1.22
+  - nodejs:24
+  - go:1.25.12
   - rust:stable
 environment:
   CARGO_HOME: /workspace/.cargo

@@ -29,9 +29,9 @@ Multi-AI development environment with Python-based tooling, comprehensive testin
 
 ## Features
 
-- 🤖 **Multi-AI Support** - Claude, Gemini, and OpenAI Codex
+- 🤖 **Multi-AI Support** - Claude, Antigravity (Gemini), and OpenAI Codex
 - 🐳 **Docker-Based** - Isolated, reproducible development environments
-- 🔧 **Profiles** - Python, Node.js, Rust, Go, plus utility profiles (sudo, git)
+- 🔧 **Profiles** - Python, Node.js, Go, Rust, Flutter, Java, .NET, PHP, Ruby, C/C++, plus utility profiles (sudo, git)
 - 🚀 **Beautiful CLI** - Rich terminal output with progress indicators and tables
 - 🔌 **Parallel Slots** - Run multiple AI containers simultaneously
 - ♻️ **Shared Base Images** - Reuse profile layers across providers; only provider CLIs rebuild
@@ -72,7 +72,7 @@ aibox start
 - **Python 3.11+** - For the CLI tool ([Download Python](https://www.python.org/downloads/))
 - **Authentication**:
   - **Claude**: OAuth authentication (authenticates in browser on first use)
-  - **Gemini & OpenAi**: aibox launches a short-lived login container during slot creation to capture an OAuth session
+  - **Antigravity (Gemini) & OpenAI**: aibox launches a short-lived login container during slot creation to capture an OAuth session
 
 ### Install via pip
 
@@ -171,7 +171,7 @@ aibox status
 - When you exit the AI CLI, the container is **stopped but preserved**. Use `--auto-delete` for a
   one-off session (container is removed when the CLI exits).
 - Provider notes:
-  - Claude and Gemini persist auth/state via their mounted config directories (!TODO)
+  - Claude and Antigravity (Gemini) persist auth/state via their mounted config directories
   - OpenAI Codex: container reuse preserves CLI config. To continue a Codex conversation, start
     with `aibox start --slot <n> --resume` to launch `codex resume` (slot must already have a
     Codex session); omit `--resume` to start a fresh Codex session in that slot.
@@ -182,14 +182,19 @@ aibox status
 
 Built-in profiles:
 - `python:3.11|3.12|3.13` - Python with uv package manager
-- `nodejs:20` - Node.js with npm global configured
-- `go:1.21|1.22|1.23` - Go with modules
-- `rust:stable|beta|nightly|1.75|1.76|1.77` - Rust with cargo/rustfmt/clippy
+- `nodejs:20|22|24` - Node.js with npm global configured (default: 24)
+- `go:1.24.13|1.25.12|1.26.5` - Go with modules (default: 1.25.12)
+- `rust:stable|beta|nightly|1.95.0|1.96.1|1.97.0` - Rust with cargo/rustfmt/clippy (default: stable)
+- `flutter:3.44.3|3.44.6` - Flutter with Dart (default: 3.44.6, Linux x64 only)
+- `java:17|21|25` - Eclipse Temurin JDK (default: 21)
+- `dotnet:8.0|9.0|10.0` - .NET SDK (default: 10.0)
+- `php:8.2|8.3|8.4|8.5` - PHP with Composer (default: 8.4)
+- `ruby:3.3.11|3.4.10|4.0.5` - Ruby built from source (default: 3.4.10)
+- `cpp:system` - GCC toolchain with gdb/cmake (Debian bookworm)
 - `sudo:1` - Passwordless sudo for the aibox user
 - `git:latest` - Git client
 
 Profile definitions live in `aibox/profiles/definitions/*.yml`; customize or add your own as needed.
-TODO: More will be added
 ---
 
 ## Documentation
@@ -279,13 +284,17 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 - ✅ user friendly login workflow for Gemini
 - ✅ status overview added
 
-### v0.3 (Current)
+### v0.3
 - ✅ persistence & one-time container support
 - ✅ cleanup workflows
 - ✅ login helper for codex
 - ✅ codex-cli resume support
 
-### v0.4+
+### v0.4 (Current)
+- ✅ Antigravity CLI (`agy`) replaces the retired Gemini CLI (still uses the `.gemini` config directory)
+- ✅ Node.js base install defaults to 24 (Active LTS); nodejs profile offers 20/22/24
+
+### v0.5+
 - TODO
 
 ---
@@ -311,11 +320,15 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 # https://docs.docker.com/get-docker/
 ```
 
-### Gemini Login Helper
+### Antigravity (Gemini) Login Helper
 ```bash
-# Gemini uses OAuth. When you add a Gemini slot, aibox runs a short-lived
-# host-network container to execute `gemini login` so the random callback port works.
-# Follow the printed URL in your browser; the session is stored under the slot's .gemini/ directory.
+# Antigravity CLI (`agy`) uses Google sign-in. When you add a Gemini slot, aibox starts
+# a short-lived host-network container (so the random callback port works) and attaches
+# your terminal to `agy` interactively; the first run triggers Google sign-in.
+# Complete the sign-in in your browser (in headless environments, open the printed URL
+# and enter the one-time code), then exit agy (type /quit or press Ctrl+C) to continue
+# slot setup. The session is stored under the slot's .gemini/ directory (the Antigravity
+# CLI reuses the .gemini config directory).
 ```
 
 ### OpenAI Login Helper

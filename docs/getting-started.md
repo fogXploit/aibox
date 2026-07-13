@@ -30,7 +30,7 @@ aibox init
 
 The wizard will:
 - Create project config under `~/.aibox/projects/<hash>/config.yml`
-- Let you pick profiles (e.g., python:3.12, nodejs:20, rust, go, sudo, git)
+- Let you pick profiles (e.g., python:3.12, nodejs:24, rust, go, sudo, git)
 - Write `.aibox/.aibox-ref` in your repo to point to the config
 
 You can rerun `aibox init` safely to adjust profiles; or edit with `aibox config edit`.
@@ -50,7 +50,7 @@ aibox start --auto-delete
 
 What happens:
 - Builds a base image for selected profiles (cached)
-- Adds provider layer (Claude/Gemini/OpenAI Codex)
+- Adds provider layer (Claude / Antigravity (Gemini) / OpenAI Codex)
 - Creates/starts a container for the chosen slot
 - Attaches you to the AI CLI inside the container
 
@@ -72,9 +72,15 @@ aibox slot cleanup        # removes all configurations of a used slot & removes 
 
 Built-in profiles:
 - python:3.11|3.12|3.13
-- nodejs:20
-- go:1.21|1.22|1.23
-- rust:stable|beta|nightly|1.75|1.76|1.77
+- nodejs:20|22|24 (default: 24)
+- go:1.24.13|1.25.12|1.26.5 (default: 1.25.12)
+- rust:stable|beta|nightly|1.95.0|1.96.1|1.97.0 (default: stable)
+- flutter:3.44.3|3.44.6 (default: 3.44.6, Linux x64 only)
+- java:17|21|25 (Eclipse Temurin JDK, default: 21)
+- dotnet:8.0|9.0|10.0 (.NET SDK, default: 10.0)
+- php:8.2|8.3|8.4|8.5 (with Composer, default: 8.4)
+- ruby:3.3.11|3.4.10|4.0.5 (built from source, default: 3.4.10)
+- cpp:system (GCC toolchain, Debian bookworm)
 - sudo:1 (passwordless sudo)
 - git:latest (git client)
 
